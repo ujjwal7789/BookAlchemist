@@ -5,6 +5,8 @@ __pycache__/
 
 input_docs/
 output_docs/
+models/
+chroma_db/
 
 # C extensions
 *.so
