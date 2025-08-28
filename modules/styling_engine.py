@@ -157,43 +157,43 @@ class StylingEngine:
             """
         
         # --- THEME 3: PROCEDURAL VINTAGE (CSS ONLY) ---
-        elif theme_name == "procedural_vintage":
-            return """
-            @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English&display=swap');
-            body {
-                font-family: 'IM Fell English', serif; font-size: 13pt;
-                line-height: 1.7; color: #3b2f2f; margin: 0;
-                background-color: #333; /* Dark background for contrast with pages */
-            }
-            .page {
-                background-color: #fdf8e8; /* Base paper color */
-                background-image:
-                    radial-gradient(circle at 80% 20%, rgba(180, 160, 140, 0.15), transparent 40%),
-                    radial-gradient(circle at 15% 70%, rgba(180, 160, 140, 0.2), transparent 30%),
-                    linear-gradient(rgba(210, 190, 170, 0.1), rgba(210, 190, 170, 0.2));
-                margin: 2.5in auto; /* Center the pages horizontally */
-                padding: 1.5in;
-                max-width: 8.5in; /* Simulate a standard paper width */
-                min-height: 11in; /* Simulate a standard paper height */
-                box-sizing: border-box; /* Include padding in width/height */
-                box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-                position: relative; overflow: hidden;
-            }
-            .page::before {
-                content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                filter: sepia(0.2) contrast(0.9) brightness(1.05); pointer-events: none;
-            }
-            .chapter_title { font-size: 2.2em; text-align: center; margin-top: 1em; margin-bottom: 2em; page-break-before: always; }
-            .heading { font-size: 1.5em; text-align: center; margin-top: 1.5em; margin-bottom: 1em; }
-            .paragraph { text-indent: 2em; margin-bottom: 0.5em; text-align: justify; }
-            .chapter_title + .paragraph::first-letter { font-size: 4em; float: left; padding-right: 0.1em; line-height: 0.8; margin-top: 0.05em; }
+        # elif theme_name == "procedural_vintage":
+        #     return """
+        #     @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English&display=swap');
+        #     body {
+        #         font-family: 'IM Fell English', serif; font-size: 13pt;
+        #         line-height: 1.7; color: #3b2f2f; margin: 0;
+        #         background-color: #333; /* Dark background for contrast with pages */
+        #     }
+        #     .page {
+        #         background-color: #fdf8e8; /* Base paper color */
+        #         background-image:
+        #             radial-gradient(circle at 80% 20%, rgba(180, 160, 140, 0.15), transparent 40%),
+        #             radial-gradient(circle at 15% 70%, rgba(180, 160, 140, 0.2), transparent 30%),
+        #             linear-gradient(rgba(210, 190, 170, 0.1), rgba(210, 190, 170, 0.2));
+        #         margin: 2.5in auto; /* Center the pages horizontally */
+        #         padding: 1.5in;
+        #         max-width: 8.5in; /* Simulate a standard paper width */
+        #         min-height: 11in; /* Simulate a standard paper height */
+        #         box-sizing: border-box; /* Include padding in width/height */
+        #         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        #         position: relative; overflow: hidden;
+        #     }
+        #     .page::before {
+        #         content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        #         filter: sepia(0.2) contrast(0.9) brightness(1.05); pointer-events: none;
+        #     }
+        #     .chapter_title { font-size: 2.2em; text-align: center; margin-top: 1em; margin-bottom: 2em; page-break-before: always; }
+        #     .heading { font-size: 1.5em; text-align: center; margin-top: 1.5em; margin-bottom: 1em; }
+        #     .paragraph { text-indent: 2em; margin-bottom: 0.5em; text-align: justify; }
+        #     .chapter_title + .paragraph::first-letter { font-size: 4em; float: left; padding-right: 0.1em; line-height: 0.8; margin-top: 0.05em; }
 
-            /* Styles for Random Defect Variations */
-            .stain, .crease { position: absolute; z-index: 0; /* Behind text */ }
-            .stain-1 { width: 150px; height: 150px; top: 5%; right: 5%; border-radius: 50%; border: 2px solid rgba(110, 90, 70, 0.1); box-shadow: inset 0 0 40px rgba(110, 90, 70, 0.1); }
-            .stain-2 { width: 80px; height: 80px; bottom: 10%; left: 5%; border-radius: 50%; border: 1px solid rgba(110, 90, 70, 0.08); box-shadow: inset 0 0 20px rgba(110, 90, 70, 0.15); }
-            .crease { width: 300px; height: 300px; top: -50px; left: -50px; background: linear-gradient(45deg, rgba(0,0,0,0.0), rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.0)); }
-            """
+        #     /* Styles for Random Defect Variations */
+        #     .stain, .crease { position: absolute; z-index: 0; /* Behind text */ }
+        #     .stain-1 { width: 150px; height: 150px; top: 5%; right: 5%; border-radius: 50%; border: 2px solid rgba(110, 90, 70, 0.1); box-shadow: inset 0 0 40px rgba(110, 90, 70, 0.1); }
+        #     .stain-2 { width: 80px; height: 80px; bottom: 10%; left: 5%; border-radius: 50%; border: 1px solid rgba(110, 90, 70, 0.08); box-shadow: inset 0 0 20px rgba(110, 90, 70, 0.15); }
+        #     .crease { width: 300px; height: 300px; top: -50px; left: -50px; background: linear-gradient(45deg, rgba(0,0,0,0.0), rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.0)); }
+        #     """
         
         # --- DEFAULT FALLBACK THEME ---
         else:
