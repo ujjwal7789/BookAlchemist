@@ -1,67 +1,54 @@
 # BookAlchemist/modules/pdf_parser.py
 
-import fitz  # PyMuPDF
+import fitz
 import re
 import pytesseract
 from PIL import Image
 import io
-
-# Optional: If tesseract is not in your PATH, include the following line
-# pytesseract.pytesseract.tesseract_cmd = r'<full_path_to_your_tesseract_executable>'
-# For example, on Windows:
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 class PDFParser:
     def __init__(self, file_path):
         self.file_path = file_path
         self.doc = fitz.open(file_path)
 
+    # ... _get_page_text method remains unchanged ...
     def _get_page_text(self, page):
-        """
-        Extracts text from a page, falling back to OCR if needed.
-        """
-        # First, try the fast, direct text extraction
+        # ... (no changes here) ...
         direct_text = page.get_text()
-        
-        # Heuristic: If direct text is very short (less than 100 characters),
-        # it might be a scanned page. Let's try OCR.
         if len(direct_text.strip()) > 100:
             return direct_text
-        
         print(f"  -> Page {page.number + 1}: Low text detected. Attempting OCR...")
         try:
-            # Render the page to an image (pixmap)
-            pix = page.get_pixmap(dpi=300) # Higher DPI for better OCR
+            pix = page.get_pixmap(dpi=300)
             img_data = pix.tobytes("png")
-            
-            # Open the image data with Pillow
             image = Image.open(io.BytesIO(img_data))
-            
-            # Use Tesseract to extract text from the image
             ocr_text = pytesseract.image_to_string(image)
-            
-            # OCR is often more accurate, so we prefer it if it returns significant text
             if len(ocr_text.strip()) > len(direct_text.strip()):
                 print(f"  -> OCR successful on page {page.number + 1}.")
                 return ocr_text
             else:
-                return direct_text # Fallback to original if OCR was poor
-
+                return direct_text
         except Exception as e:
             print(f"  -> OCR failed on page {page.number + 1}: {e}")
-            return direct_text # Return whatever we got if OCR fails
+            return direct_text
+
+    def _format_dialogue(self, text):
+        """
+        A simple heuristic to format dialogue.
+        Replaces '", "' with a newline to split consecutive quotes.
+        """
+        return text.replace('", "', '"\n\n"')
 
     def extract_structured_content(self):
+        # ... (first part of the method is unchanged) ...
         structured_content = []
         full_text = ""
-
         print("Extracting text from PDF (with OCR fallback)...")
         for i, page in enumerate(self.doc):
             print(f"Processing page {i+1}/{len(self.doc)}...")
             full_text += self._get_page_text(page) + "\n"
-        
         print("Text extraction complete. Structuring content...")
-        # ... (The rest of this method, including the heuristics and post-processing, is THE SAME)
+        
         lines = full_text.split('\n')
         current_paragraph = ""
 
@@ -69,31 +56,39 @@ class PDFParser:
             stripped_line = line.strip()
             if not stripped_line:
                 if current_paragraph:
+                    # --- MODIFIED: Apply dialogue formatting here ---
+                    formatted_para = self._format_dialogue(current_paragraph.strip())
                     structured_content.append({
                         'type': 'paragraph',
-                        'content': current_paragraph.strip()
+                        'content': formatted_para
                     })
                     current_paragraph = ""
                 continue
-
+            
+            # ... (the rest of the loop for titles/headings is the same) ...
             if re.match(r'^CHAPTER \d+|^\w*CHAPTER [IVXLCDM]+', stripped_line, re.IGNORECASE):
                 if current_paragraph:
-                    structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
+                    formatted_para = self._format_dialogue(current_paragraph.strip())
+                    structured_content.append({'type': 'paragraph', 'content': formatted_para})
                     current_paragraph = ""
                 structured_content.append({'type': 'chapter_title', 'content': stripped_line})
-            
             elif len(stripped_line.split()) < 7 and stripped_line.isupper() and not re.search(r'\d', stripped_line):
                 if current_paragraph:
-                    structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
+                    formatted_para = self._format_dialogue(current_paragraph.strip())
+                    structured_content.append({'type': 'paragraph', 'content': formatted_para})
                     current_paragraph = ""
                 structured_content.append({'type': 'heading', 'content': stripped_line})
             else:
                 current_paragraph += line + " "
 
         if current_paragraph:
-            structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
+            # --- MODIFIED: Apply dialogue formatting for the final paragraph ---
+            formatted_para = self._format_dialogue(current_paragraph.strip())
+            structured_content.append({'type': 'paragraph', 'content': formatted_para})
         
+        # ... (the post-processing step for ghost chapters is unchanged) ...
         cleaned_content = []
+        # ... (rest of the method is the same) ...
         i = 0
         while i < len(structured_content):
             current_block = structured_content[i]
