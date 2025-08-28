@@ -32,7 +32,7 @@ def process_book(file_path):
     engine = StylingEngine(structured_content=content)
     
     # Let's generate HTML for both themes to compare
-    themes_to_generate = ["classic_scholar", "modern_minimalist"]
+    themes_to_generate = ["classic_scholar", "modern_minimalist", "procedural_vintage"]
     
     for theme in themes_to_generate:
         print(f"\n--- Generating HTML for theme: {theme} ---")

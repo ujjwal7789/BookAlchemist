@@ -2,44 +2,72 @@
 
 import fitz  # PyMuPDF
 import re
+import pytesseract
+from PIL import Image
+import io
+
+# Optional: If tesseract is not in your PATH, include the following line
+# pytesseract.pytesseract.tesseract_cmd = r'<full_path_to_your_tesseract_executable>'
+# For example, on Windows:
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 class PDFParser:
-    """
-    A class to parse a PDF document, extract its text, and identify
-    basic structural elements like chapter headings.
-    """
     def __init__(self, file_path):
-        """
-        Initializes the parser with the path to the PDF file.
-        """
         self.file_path = file_path
         self.doc = fitz.open(file_path)
 
-    def extract_structured_content(self):
+    def _get_page_text(self, page):
         """
-        Extracts content and structures it into a list of dictionaries.
-        Each dictionary represents a content block (e.g., a title or a paragraph).
+        Extracts text from a page, falling back to OCR if needed.
+        """
+        # First, try the fast, direct text extraction
+        direct_text = page.get_text()
+        
+        # Heuristic: If direct text is very short (less than 100 characters),
+        # it might be a scanned page. Let's try OCR.
+        if len(direct_text.strip()) > 100:
+            return direct_text
+        
+        print(f"  -> Page {page.number + 1}: Low text detected. Attempting OCR...")
+        try:
+            # Render the page to an image (pixmap)
+            pix = page.get_pixmap(dpi=300) # Higher DPI for better OCR
+            img_data = pix.tobytes("png")
+            
+            # Open the image data with Pillow
+            image = Image.open(io.BytesIO(img_data))
+            
+            # Use Tesseract to extract text from the image
+            ocr_text = pytesseract.image_to_string(image)
+            
+            # OCR is often more accurate, so we prefer it if it returns significant text
+            if len(ocr_text.strip()) > len(direct_text.strip()):
+                print(f"  -> OCR successful on page {page.number + 1}.")
+                return ocr_text
+            else:
+                return direct_text # Fallback to original if OCR was poor
 
-        Returns:
-            list: A list of dictionaries, e.g.,
-                  [{'type': 'title', 'content': 'Chapter 1'}, {'type': 'paragraph', 'content': '...'}]
-        """
+        except Exception as e:
+            print(f"  -> OCR failed on page {page.number + 1}: {e}")
+            return direct_text # Return whatever we got if OCR fails
+
+    def extract_structured_content(self):
         structured_content = []
         full_text = ""
 
-        # First, concatenate all text to handle paragraphs spanning across pages
-        for page in self.doc:
-            full_text += page.get_text() + "\n"
+        print("Extracting text from PDF (with OCR fallback)...")
+        for i, page in enumerate(self.doc):
+            print(f"Processing page {i+1}/{len(self.doc)}...")
+            full_text += self._get_page_text(page) + "\n"
         
-        # Split the text into lines and process them
+        print("Text extraction complete. Structuring content...")
+        # ... (The rest of this method, including the heuristics and post-processing, is THE SAME)
         lines = full_text.split('\n')
         current_paragraph = ""
 
         for line in lines:
             stripped_line = line.strip()
-
             if not stripped_line:
-                # An empty line often signifies the end of a paragraph
                 if current_paragraph:
                     structured_content.append({
                         'type': 'paragraph',
@@ -48,36 +76,38 @@ class PDFParser:
                     current_paragraph = ""
                 continue
 
-            # --- Heuristics for Structure Detection ---
-            # This is the "secret sauce". We make educated guesses.
-
-            # Heuristic 1: Detect Chapter Titles (e.g., "Chapter 1", "CHAPTER IX")
             if re.match(r'^CHAPTER \d+|^\w*CHAPTER [IVXLCDM]+', stripped_line, re.IGNORECASE):
-                # If we were building a paragraph, save it first
                 if current_paragraph:
                     structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
                     current_paragraph = ""
-                
                 structured_content.append({'type': 'chapter_title', 'content': stripped_line})
             
-            # Heuristic 2: Simple heading detection (e.g., a short, all-caps line)
-            elif len(stripped_line.split()) < 7 and stripped_line.isupper():
+            elif len(stripped_line.split()) < 7 and stripped_line.isupper() and not re.search(r'\d', stripped_line):
                 if current_paragraph:
                     structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
                     current_paragraph = ""
-                
                 structured_content.append({'type': 'heading', 'content': stripped_line})
-
             else:
-                # If it's not a title or heading, it's part of a paragraph
                 current_paragraph += line + " "
 
-        # Add the last remaining paragraph if it exists
         if current_paragraph:
             structured_content.append({'type': 'paragraph', 'content': current_paragraph.strip()})
+        
+        cleaned_content = []
+        i = 0
+        while i < len(structured_content):
+            current_block = structured_content[i]
+            next_block = structured_content[i + 1] if i + 1 < len(structured_content) else None
+            is_ghost_chapter = (
+                current_block['type'] == 'chapter_title' and 
+                next_block and 
+                next_block['type'] == 'chapter_title'
+            )
+            if not is_ghost_chapter:
+                cleaned_content.append(current_block)
+            i += 1
             
-        return structured_content
+        return cleaned_content
 
     def close(self):
-        """Closes the document."""
         self.doc.close()
