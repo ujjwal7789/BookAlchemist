@@ -7,8 +7,11 @@ import os
 import shutil
 import asyncio
 
-# Import our backend modules
+# --- CORRECTED IMPORTS ---
 from modules.pdf_parser import PDFParser
+from modules.epub_parser import EpubParser
+from modules.mobi_converter import convert_mobi_to_epub
+
 from modules.styling_engine import StylingEngine
 from modules.pdf_generator import PDFGenerator
 from modules.ai_assistant import AIAssistant
@@ -23,7 +26,7 @@ class BookAlchemistApp(ctk.CTk):
         ctk.set_appearance_mode("dark")
 
         # --- State Variables ---
-        self.pdf_path = None
+        self.file_path = None
         self.structured_content = None
         self.assistant = None
         self.semantic_cache = None
@@ -33,26 +36,23 @@ class BookAlchemistApp(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        # --- UI Frames & Widgets ---
-
-        # --- Frame 1: File Selection ---
+        # --- UI Frames ---
         file_frame = ctk.CTkFrame(self)
         file_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         file_frame.grid_columnconfigure(1, weight=1)
         
         self.select_button = ctk.CTkButton(
             file_frame, text="Select Book", height=40,
-            command=self.select_pdf, state="disabled" # Starts disabled
+            command=self.select_book, state="disabled"
         )
         self.select_button.grid(row=0, column=0, padx=10, pady=10)
 
         self.file_label = ctk.CTkLabel(file_frame, text="Initializing AI, please wait...", text_color="gray", anchor="w")
         self.file_label.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
-        # --- Frame 2: Independent Actions ---
         action_frame = ctk.CTkFrame(self)
         action_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        action_frame.grid_columnconfigure((0, 2), weight=1) # Add weights to columns for spacing
+        action_frame.grid_columnconfigure((0, 2), weight=1)
 
         self.style_button = ctk.CTkButton(
             action_frame, text="1. Generate Styled PDF",
@@ -69,7 +69,6 @@ class BookAlchemistApp(ctk.CTk):
         )
         self.chat_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
-        # --- Frame 3: AI Chat ---
         chat_frame = ctk.CTkFrame(self)
         chat_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
         chat_frame.grid_rowconfigure(0, weight=1)
@@ -82,7 +81,6 @@ class BookAlchemistApp(ctk.CTk):
         self.send_button = ctk.CTkButton(chat_frame, text="Send", command=self.send_message_thread, state="disabled")
         self.send_button.grid(row=1, column=1, padx=10, pady=10)
 
-        # Start pre-loading the AI in the background on startup
         self.after(100, self.start_ai_initialization_thread)
 
     def start_ai_initialization_thread(self):
@@ -97,30 +95,63 @@ class BookAlchemistApp(ctk.CTk):
         except Exception as e:
             self.file_label.configure(text=f"Error: AI Failed to Load. Please Restart. Details: {e}", text_color="red")
 
-    def select_pdf(self):
-        path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+    def select_book(self):
+        path = filedialog.askopenfilename(
+            title="Select a Book",
+            filetypes=[
+                ("All Supported Books", "*.pdf *.epub *.mobi"),
+                ("PDF Documents", "*.pdf"),
+                ("EPUB Books", "*.epub"),
+                ("MOBI Books", "*.mobi")
+            ]
+        )
         if path:
-            self.pdf_path = path
+            self.file_path = path
             self.file_label.configure(text=f"Selected: {os.path.basename(path)}", text_color="white")
             self.add_message("System", f"Selected book: {os.path.basename(path)}")
-            # Disable buttons and start parsing in a background thread
+            
             self.style_button.configure(state="disabled")
             self.chat_button.configure(state="disabled")
+            self.input_box.configure(state="disabled")
+            self.send_button.configure(state="disabled")
+
             threading.Thread(target=self._parse_document_thread, daemon=True).start()
 
     def _parse_document_thread(self):
-        """Parses the document in the background and enables action buttons."""
         self.add_message("System", "Parsing document...")
-        parser = PDFParser(file_path=self.pdf_path)
-        self.structured_content = parser.extract_structured_content()
-        parser.close()
-        self.add_message("System", f"✅ Parsing complete. Ready for action.")
-        # Now enable the two action buttons
-        self.style_button.configure(state="normal")
-        self.chat_button.configure(state="normal")
+        
+        parser = None
+        path_to_parse = self.file_path
+        
+        try:
+            if path_to_parse.lower().endswith('.pdf'):
+                parser = PDFParser(file_path=path_to_parse)
+            
+            elif path_to_parse.lower().endswith('.epub'):
+                parser = EpubParser(file_path=path_to_parse)
+            
+            elif path_to_parse.lower().endswith('.mobi'):
+                converted_epub_path = convert_mobi_to_epub(path_to_parse)
+                if converted_epub_path:
+                    path_to_parse = converted_epub_path
+                    parser = EpubParser(file_path=path_to_parse)
+                else:
+                    self.add_message("Error", "MOBI to EPUB conversion failed. Please check Calibre installation.")
+                    return
+            
+            if parser:
+                self.structured_content = parser.extract_structured_content()
+                parser.close()
+                self.add_message("System", f"✅ Parsing complete. Ready for action.")
+                self.style_button.configure(state="normal")
+                self.chat_button.configure(state="normal")
+            else:
+                self.add_message("Error", f"Unsupported file type: {os.path.basename(path_to_parse)}")
+
+        except Exception as e:
+            self.add_message("Error", f"Failed to parse document: {e}")
 
     def start_styling_thread(self):
-        """Kicks off the styling and PDF generation pipeline."""
         self.style_button.configure(state="disabled")
         self.chat_button.configure(state="disabled")
         threading.Thread(target=self._run_styling_pipeline, daemon=True).start()
@@ -128,48 +159,51 @@ class BookAlchemistApp(ctk.CTk):
     def _run_styling_pipeline(self):
         try:
             theme = self.theme_menu.get()
-            book_id = os.path.splitext(os.path.basename(self.pdf_path))[0].lower().replace(" ", "_")
+            book_id = os.path.splitext(os.path.basename(self.file_path))[0].lower().replace(" ", "_")
             self.add_message("System", f"Generating PDF with '{theme}' theme...")
             
             engine = StylingEngine(structured_content=self.structured_content)
             html = engine.generate_html(theme_name=theme, book_title=book_id)
-            pdf_path = os.path.join("output_docs", f"{book_id}_{theme}.pdf")
+            
+            base_pdf_path = os.path.join("output_docs", f"{book_id}_{theme}.pdf")
+            final_pdf_path = base_pdf_path
+            counter = 1
+            while os.path.exists(final_pdf_path):
+                name, ext = os.path.splitext(base_pdf_path)
+                final_pdf_path = f"{name} ({counter}){ext}"
+                counter += 1
             
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(PDFGenerator.generate_pdf_from_html(html, pdf_path))
+            loop.run_until_complete(PDFGenerator.generate_pdf_from_html(html, final_pdf_path))
             loop.close()
             
-            self.add_message("System", f"✅ PDF saved to {pdf_path}")
+            self.add_message("System", f"✅ PDF saved to {os.path.basename(final_pdf_path)}")
         except Exception as e:
             self.add_message("Error", f"Failed to generate PDF: {e}")
         finally:
-            # Always re-enable buttons
             self.style_button.configure(state="normal")
             self.chat_button.configure(state="normal")
 
     def start_ai_ingestion_thread(self):
-        """Kicks off the AI ingestion pipeline."""
         self.style_button.configure(state="disabled")
         self.chat_button.configure(state="disabled")
         threading.Thread(target=self._run_ai_ingestion, daemon=True).start()
 
     def _run_ai_ingestion(self):
         try:
-            self.active_ai_book_name = os.path.basename(self.pdf_path)
+            self.active_ai_book_name = os.path.basename(self.file_path)
             self.active_ai_book_id = os.path.splitext(self.active_ai_book_name)[0].lower().replace(" ", "_")
             
             self.add_message("System", "AI is now studying the book...")
             self.assistant.ingest_document(self.structured_content, self.active_ai_book_id)
             self.add_message("System", f"✅ AI is ready! You can now ask questions about '{self.active_ai_book_name}'.")
             
-            # Enable the chat controls
             self.input_box.configure(state="normal")
             self.send_button.configure(state="normal")
         except Exception as e:
             self.add_message("Error", f"Could not load book into AI: {e}")
         finally:
-            # Always re-enable buttons
             self.style_button.configure(state="normal")
             self.chat_button.configure(state="normal")
 
@@ -178,7 +212,6 @@ class BookAlchemistApp(ctk.CTk):
             threading.Thread(target=self.ask_ai, daemon=True).start()
 
     def ask_ai(self):
-        # ... (This method is unchanged) ...
         question = self.input_box.get()
         if not question.strip(): return
         self.add_message("You", question)
@@ -196,7 +229,6 @@ class BookAlchemistApp(ctk.CTk):
         self.send_button.configure(state="normal")
     
     def add_message(self, sender, message):
-        # ... (This method is unchanged) ...
         self.chatbox.configure(state="normal")
         self.chatbox.insert("end", f"{sender}:\n{message}\n\n")
         self.chatbox.configure(state="disabled")
