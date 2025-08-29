@@ -7,7 +7,7 @@ import os
 import shutil
 import asyncio
 
-# --- CORRECTED IMPORTS ---
+# --- Note: We only need ONE PDF parser now, but support EPUB/MOBI ---
 from modules.pdf_parser import PDFParser
 from modules.epub_parser import EpubParser
 from modules.mobi_converter import convert_mobi_to_epub
@@ -21,20 +21,22 @@ class BookAlchemistApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Book Alchemist")
+        self.title("Book Alchemist - Final Edition")
         self.geometry("800x600")
         ctk.set_appearance_mode("dark")
+
+        # --- THE FIX: Correct method name (no underscore) ---
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         # --- State Variables ---
         self.file_path = None
         self.structured_content = None
+        self.dominant_font = None # To store the detected font
         self.assistant = None
         self.semantic_cache = None
         self.active_ai_book_name = None
         self.active_ai_book_id = None
-
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
 
         # --- UI Frames ---
         file_frame = ctk.CTkFrame(self)
@@ -60,7 +62,7 @@ class BookAlchemistApp(ctk.CTk):
         )
         self.style_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
-        self.theme_menu = ctk.CTkOptionMenu(action_frame, values=["classic_scholar", "procedural_vintage", "academic_journal", "coding_manual"])
+        self.theme_menu = ctk.CTkOptionMenu(action_frame, values=["premium_novel", "formal_textbook"])
         self.theme_menu.grid(row=0, column=1, padx=10, pady=10)
 
         self.chat_button = ctk.CTkButton(
@@ -93,7 +95,7 @@ class BookAlchemistApp(ctk.CTk):
             self.select_button.configure(state="normal")
             self.file_label.configure(text="AI Ready. Please select a book to begin.")
         except Exception as e:
-            self.file_label.configure(text=f"Error: AI Failed to Load. Please Restart. Details: {e}", text_color="red")
+            self.file_label.configure(text=f"Error: AI Failed to Load. Details: {e}", text_color="red")
 
     def select_book(self):
         path = filedialog.askopenfilename(
@@ -118,7 +120,7 @@ class BookAlchemistApp(ctk.CTk):
             threading.Thread(target=self._parse_document_thread, daemon=True).start()
 
     def _parse_document_thread(self):
-        self.add_message("System", "Parsing document...")
+        self.add_message("System", "Analyzing document...")
         
         parser = None
         path_to_parse = self.file_path
@@ -126,27 +128,34 @@ class BookAlchemistApp(ctk.CTk):
         try:
             if path_to_parse.lower().endswith('.pdf'):
                 parser = PDFParser(file_path=path_to_parse)
+                self.structured_content = parser.extract_structured_content()
+                # Find dominant font only for PDFs
+                self.dominant_font, _ = parser.find_dominant_font()
+                self.add_message("System", f"Dominant font found: {self.dominant_font or 'N/A'}")
             
             elif path_to_parse.lower().endswith('.epub'):
                 parser = EpubParser(file_path=path_to_parse)
+                self.structured_content = parser.extract_structured_content()
+                self.dominant_font = None # EPUBs use CSS, so we don't override
             
             elif path_to_parse.lower().endswith('.mobi'):
                 converted_epub_path = convert_mobi_to_epub(path_to_parse)
                 if converted_epub_path:
                     path_to_parse = converted_epub_path
                     parser = EpubParser(file_path=path_to_parse)
+                    self.structured_content = parser.extract_structured_content()
+                    self.dominant_font = None
                 else:
-                    self.add_message("Error", "MOBI to EPUB conversion failed. Please check Calibre installation.")
+                    self.add_message("Error", "MOBI to EPUB conversion failed. Please check Calibre.")
                     return
             
             if parser:
-                self.structured_content = parser.extract_structured_content()
                 parser.close()
-                self.add_message("System", f"✅ Parsing complete. Ready for action.")
+                self.add_message("System", f"✅ Analysis complete. Ready for action.")
                 self.style_button.configure(state="normal")
                 self.chat_button.configure(state="normal")
             else:
-                self.add_message("Error", f"Unsupported file type: {os.path.basename(path_to_parse)}")
+                self.add_message("Error", f"Unsupported file type.")
 
         except Exception as e:
             self.add_message("Error", f"Failed to parse document: {e}")
@@ -163,7 +172,7 @@ class BookAlchemistApp(ctk.CTk):
             self.add_message("System", f"Generating PDF with '{theme}' theme...")
             
             engine = StylingEngine(structured_content=self.structured_content)
-            html = engine.generate_html(theme_name=theme, book_title=book_id)
+            html = engine.generate_html(theme_name=theme, book_title=book_id, dominant_font=self.dominant_font)
             
             base_pdf_path = os.path.join("output_docs", f"{book_id}_{theme}.pdf")
             final_pdf_path = base_pdf_path

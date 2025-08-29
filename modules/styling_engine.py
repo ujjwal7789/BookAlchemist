@@ -1,21 +1,17 @@
 # BookAlchemist/modules/styling_engine.py
 
-import random
-import os
 from pathlib import Path
+import base64
+import os
 
 class StylingEngine:
     def __init__(self, structured_content):
         self.content = structured_content
 
-    def generate_html(self, theme_name="classic_scholar", book_title="My Book"):
-        css_styles = self._get_theme_css(theme_name)
+    def generate_html(self, theme_name, book_title, dominant_font=None):
+        css_styles = self._get_theme_css(theme_name, dominant_font)
         
-        # Dispatch to the appropriate generator based on the theme
-        if theme_name == "procedural_vintage":
-            body_content = self._generate_paged_html_procedural()
-        else:
-            body_content = self._generate_standard_html()
+        body_content = self._generate_standard_html()
 
         html_template = f"""
         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{book_title}</title><style>{css_styles}</style></head>
@@ -28,7 +24,7 @@ class StylingEngine:
         for block in self.content:
             block_type = block['type']
             
-            if block_type in ['paragraph', 'chapter_title', 'heading', 'code_block']:
+            if block_type in ['paragraph', 'chapter_title', 'heading', 'code_block', 'image_caption']:
                 block_content = block['content'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 
                 if block_type == 'paragraph':
@@ -39,129 +35,122 @@ class StylingEngine:
                     html_body_parts.append(f'<h2 class="heading">{block_content}</h2>')
                 elif block_type == 'code_block':
                     html_body_parts.append(f'<pre class="code_block"><code>{block_content}</code></pre>')
+                elif block_type == 'image_caption':
+                    html_body_parts.append(f'<p class="image-caption">{block_content}</p>')
 
             elif block_type == 'image':
-                # --- THE FINAL, DEFINITIVE FIX: EMBED IMAGE DATA DIRECTLY ---
+                # Embed image data directly using Data URIs for robustness
                 relative_image_path = os.path.join("output_docs", block['path'])
                 absolute_image_path = os.path.abspath(relative_image_path)
-                
                 try:
-                    # 1. Read the image file in binary mode
                     with open(absolute_image_path, "rb") as image_file:
-                        # 2. Encode the binary data into a Base64 string
                         encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-                    
-                    # 3. Create a Data URI
-                    # The format is "data:[<mediatype>];base64,[<data>]"
                     image_url = f"data:image/png;base64,{encoded_string}"
-                    
-                    # 4. Use this Data URI in the image tag
                     html_body_parts.append(f'<div class="image-container"><img src="{image_url}" class="embedded-image"></div>')
-                
                 except FileNotFoundError:
-                    print(f"Warning: Image file not found at {absolute_image_path}. Skipping.")
                     continue
-        
         return "\n".join(html_body_parts)
 
-    
-    # ... (the procedural generator is unchanged) ...
-    def _generate_paged_html_procedural(self):
-        # This implementation remains the same, but it won't render code blocks.
-        # Could be extended to support them if needed.
-        # ... (code from previous versions) ...
-        pass
+    def _get_theme_css(self, theme_name, dominant_font=None):
+        base_font_override = ""
+        if dominant_font:
+            # If a dominant font was found, we inject it as a high-priority rule.
+            base_font_override = f"body {{ font-family: '{dominant_font}', serif !important; }}"
 
-    def _get_theme_css(self, theme_name="classic_scholar"):
-        # --- THEME 1: CLASSIC SCHOLAR (Unchanged) ---
-       # --- THEME 1: CLASSIC SCHOLAR ---
-        if theme_name == "classic_scholar":
-            return """
-            @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&display=swap');
-            
-            @page {
-                /* --- CHANGE: Reduced margins for the new paper size --- */
-                margin: 1in; 
+        if theme_name == "premium_novel":
+            return base_font_override + """
+            @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&display=swap');
+            @page { 
+                margin: 1.25in 1in;
+                @bottom-center {
+                    content: counter(page);
+                    font-size: 10pt;
+                    color: #666;
+                }
             }
-
             body {
-                font-family: 'Cormorant Garamond', serif; font-size: 10pt;
-                line-height: 1.8; margin: 0;
-                background-color: #fdfaf3; color: #333;
-            }
-            .chapter_title { font-size: 2.5em; font-weight: bold; margin-top: 1em; margin-bottom: 1.5em; text-align: center; page-break-before: always; }
-            /* ... (rest of the CSS is the same) ... */
-
-            .paragraph {
-                text-indent: 2em;
-                margin-bottom: 0.5em;
-                /* --- THE CHANGE: Add justification --- */
-                text-align: justify;
-            }
-            """
-
-        # --- THEME 2: PROCEDURAL VINTAGE (UPDATED MARGINS) ---
-        elif theme_name == "procedural_vintage":
-            return """
-            @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English&display=swap');
-            
-            @page {
-                /* --- CHANGE: Reduced margins for the new paper size --- */
-                margin: 1in;
-            }
-
-            body {
-                font-family: 'IM Fell English', serif; font-size: 13pt;
-                line-height: 1.7; color: #3b2f2f; margin: 0;
-                background-color: #333;
-            }
-            """
-
-        
-
-        # --- NEW THEME 3: ACADEMIC JOURNAL ---
-        elif theme_name == "academic_journal":
-            return """
-            @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
-            body {
-                font-family: 'Lato', sans-serif;
-                font-size: 11pt;
-                line-height: 1.6;
-                margin: 1in;
-                background-color: #ffffff;
-                color: #222;
-            }
-            .chapter_title { font-size: 2em; font-weight: 700; margin-top: 2em; margin-bottom: 1em; border-bottom: 2px solid #333; padding-bottom: 0.25em; }
-            .heading { font-size: 1.5em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
-            .paragraph { margin-bottom: 1em; text-align: justify; }
-            """
-
-        # --- NEW THEME 4: CODING MANUAL ---
-        elif theme_name == "coding_manual":
-            return """
-            @import url('https://fonts.googleapis.com/css2?family=Fira+Code&display=swap');
-            @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-            body {
-                font-family: 'Roboto', sans-serif;
+                font-family: 'EB Garamond', serif;
                 font-size: 12pt;
-                line-height: 1.7;
-                margin: 1in;
-                background-color: #f7f7f7;
-                color: #333;
+                line-height: 1.6;
+                color: #222;
+                background-color: #fdfaf3;
+                margin: 0;
             }
-            .chapter_title { font-size: 2.2em; font-weight: 700; color: #005A9C; margin-top: 2em; margin-bottom: 1em; }
-            .heading { font-size: 1.6em; font-weight: 700; color: #005A9C; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; margin-top: 1.5em; margin-bottom: 0.75em; }
-            .paragraph { margin-bottom: 1.2em; }
-            .code_block {
-                font-family: 'Fira Code', monospace;
-                font-size: 10pt;
-                background-color: #2d2d2d; /* Dark background for code */
-                color: #f1f1f1; /* Light text for code */
-                padding: 1em;
-                border-radius: 5px;
-                overflow-x: auto; /* Allow horizontal scrolling */
-                white-space: pre-wrap; /* Preserve whitespace and wrap lines */
+            h1.chapter_title {
+                font-size: 2.5em;
+                font-weight: 400;
+                text-align: center;
+                margin-top: 2em;
+                margin-bottom: 2em;
+                page-break-before: always;
             }
+            h1.chapter_title + p.paragraph::first-letter {
+                font-size: 4em;
+                float: left;
+                line-height: 0.8;
+                padding-right: 0.1em;
+                margin-top: 0.05em;
+            }
+            p.paragraph {
+                text-align: justify;
+                text-indent: 2em;
+                margin-bottom: 0.2em;
+                hyphens: auto;
+                font-variant-ligatures: common-ligatures;
+            }
+            .image-container { text-align: center; margin: 2em 0; page-break-inside: avoid; }
+            .embedded-image { max-width: 90%; height: auto; border: 1px solid #ddd; }
+            .image-caption { text-align: center; font-style: italic; font-size: 0.9em; color: #555; margin-top: 0.5em; }
             """
-        else:
+
+        elif theme_name == "formal_textbook":
+            return base_font_override + """
+            @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;700&family=Source+Code+Pro&display=swap');
+            @page { 
+                margin: 1in;
+                @bottom-right { content: counter(page); font-size: 9pt; color: #888; }
+            }
+            body {
+                font-family: 'Source Sans 3', sans-serif;
+                font-size: 11pt;
+                line-height: 1.7;
+                color: #111;
+                background-color: #fff;
+                margin: 0;
+            }
+            h1.chapter_title {
+                font-size: 2.5em;
+                font-weight: 700;
+                color: #2a3a7d;
+                border-bottom: 2px solid #2a3a7d;
+                padding-bottom: 0.3em;
+                margin-top: 1.5em;
+                margin-bottom: 1.5em;
+            }
+            h2.heading {
+                font-size: 1.8em;
+                font-weight: 700;
+                color: #333;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 0.2em;
+                margin-top: 2em;
+                margin-bottom: 1em;
+            }
+            p.paragraph { text-align: left; margin-bottom: 1.2em; }
+            pre.code_block {
+                font-family: 'Source Code Pro', monospace;
+                font-size: 9.5pt;
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 1em;
+                overflow-x: auto;
+                white-space: pre-wrap;
+            }
+            .image-container { text-align: center; margin: 2em 0; page-break-inside: avoid; }
+            .embedded-image { max-width: 90%; height: auto; border: 1px solid #eee; }
+            .image-caption { text-align: center; font-weight: 700; font-size: 0.9em; color: #444; margin-top: 0.5em; }
+            """
+        
+        else: # Fallback to a clean default
             return "body { font-family: sans-serif; margin: 1in; }"

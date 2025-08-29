@@ -54,6 +54,10 @@ class AIAssistant:
         self.chain = None
         
     def ingest_document(self, structured_content, book_id):
+        """
+        Ingests a new document, creating a new knowledge base if one doesn't exist
+        for this book_id, or loading the cached one if it does.
+        """
         db_path = os.path.join("./chroma_cache", book_id)
 
         if os.path.exists(db_path):
@@ -61,11 +65,17 @@ class AIAssistant:
             db = Chroma(persist_directory=db_path, embedding_function=self.embeddings)
         else:
             print(f"📚 Creating new knowledge base for '{book_id}'...")
-            full_text = "\n\n".join([block['content'] for block in structured_content])
+            
+            # --- THE FINAL FIX: Filter for text-based content only ---
+            # The AI can only process text, so we filter out images and other non-text blocks.
+            # We do this by only including blocks that have a 'content' key.
+            text_based_content = [block['content'] for block in structured_content if 'content' in block]
+            full_text = "\n\n".join(text_based_content)
+            
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
             texts = text_splitter.split_text(full_text)
             
-            print(f"📄 Document split into {len(texts)} chunks. Now embedding on CPU...")
+            print(f"📄 Document split into {len(texts)} text chunks. Now embedding...")
             db = Chroma.from_texts(texts=texts, embedding=self.embeddings, persist_directory=db_path)
         
         print("✅ Knowledge base is ready.")
