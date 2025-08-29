@@ -85,12 +85,19 @@ class StylingEngine:
             }
 
             body {
-                font-family: 'Cormorant Garamond', serif; font-size: 14pt;
+                font-family: 'Cormorant Garamond', serif; font-size: 10pt;
                 line-height: 1.8; margin: 0;
                 background-color: #fdfaf3; color: #333;
             }
             .chapter_title { font-size: 2.5em; font-weight: bold; margin-top: 1em; margin-bottom: 1.5em; text-align: center; page-break-before: always; }
             /* ... (rest of the CSS is the same) ... */
+
+            .paragraph {
+                text-indent: 2em;
+                margin-bottom: 0.5em;
+                /* --- THE CHANGE: Add justification --- */
+                text-align: justify;
+            }
             """
 
         # --- THEME 2: PROCEDURAL VINTAGE (UPDATED MARGINS) ---
