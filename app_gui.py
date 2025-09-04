@@ -1,13 +1,13 @@
 # BookAlchemist/app_gui.py
 
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import threading
 import os
 import shutil
 import asyncio
 
-# --- Note: We only need ONE PDF parser now, but support EPUB/MOBI ---
+# --- FULL SET OF IMPORTS ---
 from modules.pdf_parser import PDFParser
 from modules.epub_parser import EpubParser
 from modules.mobi_converter import convert_mobi_to_epub
@@ -16,6 +16,47 @@ from modules.styling_engine import StylingEngine
 from modules.pdf_generator import PDFGenerator
 from modules.ai_assistant import AIAssistant
 from modules.cache_manager import SemanticCache
+from modules.config_manager import ConfigManager
+
+class SettingsWindow(ctk.CTkToplevel):
+    """The pop-up window for AI settings."""
+    def __init__(self, master, config_manager):
+        super().__init__(master)
+        self.title("Settings")
+        self.geometry("450x300")
+        self.transient(master)
+        self.grab_set()
+
+        self.config_manager = config_manager
+
+        ctk.CTkLabel(self, text="AI Provider").grid(row=0, column=0, padx=20, pady=10, sticky="w")
+        self.provider_menu = ctk.CTkOptionMenu(self, values=["local", "openai", "perplexity"])
+        self.provider_menu.set(self.config_manager.get_provider())
+        self.provider_menu.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
+
+        ctk.CTkLabel(self, text="OpenAI API Key").grid(row=1, column=0, padx=20, pady=10, sticky="w")
+        self.openai_key_entry = ctk.CTkEntry(self, show="*")
+        self.openai_key_entry.insert(0, self.config_manager.get_api_key("openai"))
+        self.openai_key_entry.grid(row=1, column=1, padx=20, pady=10, sticky="ew")
+
+        ctk.CTkLabel(self, text="Perplexity API Key").grid(row=2, column=0, padx=20, pady=10, sticky="w")
+        self.perplexity_key_entry = ctk.CTkEntry(self, show="*")
+        self.perplexity_key_entry.insert(0, self.config_manager.get_api_key("perplexity"))
+        self.perplexity_key_entry.grid(row=2, column=1, padx=20, pady=10, sticky="ew")
+
+        ctk.CTkLabel(self, text="Changes require an app restart.", font=("", 10), text_color="gray").grid(row=3, column=0, columnspan=2, padx=20, pady=5)
+
+        save_button = ctk.CTkButton(self, text="Save and Close", command=self.save_and_close)
+        save_button.grid(row=4, column=0, columnspan=2, padx=20, pady=20)
+
+    def save_and_close(self):
+        provider = self.provider_menu.get()
+        openai_key = self.openai_key_entry.get()
+        perplexity_key = self.perplexity_key_entry.get()
+        self.config_manager.save_config(provider, openai_key, perplexity_key)
+        self.destroy()
+        messagebox.showinfo("Settings Saved", "Settings have been saved. Please restart the application for changes to take effect.")
+
 
 class BookAlchemistApp(ctk.CTk):
     def __init__(self):
@@ -24,51 +65,45 @@ class BookAlchemistApp(ctk.CTk):
         self.title("Book Alchemist - Final Edition")
         self.geometry("800x600")
         ctk.set_appearance_mode("dark")
-
-        # --- THE FIX: Correct method name (no underscore) ---
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
+
+        # --- Initialize Managers ---
+        self.config_manager = ConfigManager()
 
         # --- State Variables ---
         self.file_path = None
         self.structured_content = None
-        self.dominant_font = None # To store the detected font
+        self.dominant_font = None
         self.assistant = None
         self.semantic_cache = None
         self.active_ai_book_name = None
         self.active_ai_book_id = None
 
-        # --- UI Frames ---
-        file_frame = ctk.CTkFrame(self)
-        file_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        file_frame.grid_columnconfigure(1, weight=1)
-        
-        self.select_button = ctk.CTkButton(
-            file_frame, text="Select Book", height=40,
-            command=self.select_book, state="disabled"
-        )
-        self.select_button.grid(row=0, column=0, padx=10, pady=10)
+        # --- UI FRAMES ---
+        top_frame = ctk.CTkFrame(self)
+        top_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        top_frame.grid_columnconfigure(1, weight=1)
 
-        self.file_label = ctk.CTkLabel(file_frame, text="Initializing AI, please wait...", text_color="gray", anchor="w")
+        self.select_button = ctk.CTkButton(top_frame, text="Select Book", height=40, command=self.select_book, state="disabled")
+        self.select_button.grid(row=0, column=0, padx=10, pady=10)
+        self.file_label = ctk.CTkLabel(top_frame, text="Initializing AI, please wait...", text_color="gray", anchor="w")
         self.file_label.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        
+        self.settings_button = ctk.CTkButton(top_frame, text="Settings", command=self.open_settings)
+        self.settings_button.grid(row=0, column=2, padx=10, pady=10)
 
         action_frame = ctk.CTkFrame(self)
         action_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
         action_frame.grid_columnconfigure((0, 2), weight=1)
 
-        self.style_button = ctk.CTkButton(
-            action_frame, text="1. Generate Styled PDF",
-            command=self.start_styling_thread, state="disabled"
-        )
+        self.style_button = ctk.CTkButton(action_frame, text="1. Generate Styled PDF", command=self.start_styling_thread, state="disabled")
         self.style_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         self.theme_menu = ctk.CTkOptionMenu(action_frame, values=["premium_novel", "formal_textbook"])
         self.theme_menu.grid(row=0, column=1, padx=10, pady=10)
 
-        self.chat_button = ctk.CTkButton(
-            action_frame, text="2. Chat with this Book",
-            command=self.start_ai_ingestion_thread, state="disabled"
-        )
+        self.chat_button = ctk.CTkButton(action_frame, text="2. Chat with this Book", command=self.start_ai_ingestion_thread, state="disabled")
         self.chat_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
         chat_frame = ctk.CTkFrame(self)
@@ -85,17 +120,31 @@ class BookAlchemistApp(ctk.CTk):
 
         self.after(100, self.start_ai_initialization_thread)
 
+    def open_settings(self):
+        """Opens the settings pop-up window."""
+        SettingsWindow(self, self.config_manager)
+
     def start_ai_initialization_thread(self):
+        """This function is called by the mainloop shortly after startup."""
         threading.Thread(target=self._initialize_ai, daemon=True).start()
 
     def _initialize_ai(self):
         try:
-            self.assistant = AIAssistant()
+            provider = self.config_manager.get_provider()
+            
+            # --- THE FIX: Provide the provider name when getting the API key ---
+            # Now we ask the config manager for the specific key needed by the selected provider.
+            api_key = self.config_manager.get_api_key(provider)
+            
+            self.assistant = AIAssistant(provider=provider, api_key=api_key)
             self.semantic_cache = SemanticCache(embedding_model=self.assistant.embeddings)
+            
             self.select_button.configure(state="normal")
-            self.file_label.configure(text="AI Ready. Please select a book to begin.")
+            self.file_label.configure(text=f"AI Ready (Provider: {provider.upper()}). Please select a book.")
         except Exception as e:
-            self.file_label.configure(text=f"Error: AI Failed to Load. Details: {e}", text_color="red")
+            error_message = f"Error: AI Failed to Load. Check Settings. Details: {e}"
+            self.file_label.configure(text=error_message, text_color="red")
+            self.add_message("System", error_message)
 
     def select_book(self):
         path = filedialog.askopenfilename(
@@ -121,23 +170,18 @@ class BookAlchemistApp(ctk.CTk):
 
     def _parse_document_thread(self):
         self.add_message("System", "Analyzing document...")
-        
         parser = None
         path_to_parse = self.file_path
-        
         try:
             if path_to_parse.lower().endswith('.pdf'):
                 parser = PDFParser(file_path=path_to_parse)
                 self.structured_content = parser.extract_structured_content()
-                # Find dominant font only for PDFs
                 self.dominant_font, _ = parser.find_dominant_font()
                 self.add_message("System", f"Dominant font found: {self.dominant_font or 'N/A'}")
-            
             elif path_to_parse.lower().endswith('.epub'):
                 parser = EpubParser(file_path=path_to_parse)
                 self.structured_content = parser.extract_structured_content()
-                self.dominant_font = None # EPUBs use CSS, so we don't override
-            
+                self.dominant_font = None
             elif path_to_parse.lower().endswith('.mobi'):
                 converted_epub_path = convert_mobi_to_epub(path_to_parse)
                 if converted_epub_path:
@@ -156,7 +200,6 @@ class BookAlchemistApp(ctk.CTk):
                 self.chat_button.configure(state="normal")
             else:
                 self.add_message("Error", f"Unsupported file type.")
-
         except Exception as e:
             self.add_message("Error", f"Failed to parse document: {e}")
 
@@ -170,10 +213,8 @@ class BookAlchemistApp(ctk.CTk):
             theme = self.theme_menu.get()
             book_id = os.path.splitext(os.path.basename(self.file_path))[0].lower().replace(" ", "_")
             self.add_message("System", f"Generating PDF with '{theme}' theme...")
-            
             engine = StylingEngine(structured_content=self.structured_content)
             html = engine.generate_html(theme_name=theme, book_title=book_id, dominant_font=self.dominant_font)
-            
             base_pdf_path = os.path.join("output_docs", f"{book_id}_{theme}.pdf")
             final_pdf_path = base_pdf_path
             counter = 1
@@ -181,12 +222,10 @@ class BookAlchemistApp(ctk.CTk):
                 name, ext = os.path.splitext(base_pdf_path)
                 final_pdf_path = f"{name} ({counter}){ext}"
                 counter += 1
-            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(PDFGenerator.generate_pdf_from_html(html, final_pdf_path))
             loop.close()
-            
             self.add_message("System", f"✅ PDF saved to {os.path.basename(final_pdf_path)}")
         except Exception as e:
             self.add_message("Error", f"Failed to generate PDF: {e}")
@@ -203,11 +242,9 @@ class BookAlchemistApp(ctk.CTk):
         try:
             self.active_ai_book_name = os.path.basename(self.file_path)
             self.active_ai_book_id = os.path.splitext(self.active_ai_book_name)[0].lower().replace(" ", "_")
-            
             self.add_message("System", "AI is now studying the book...")
             self.assistant.ingest_document(self.structured_content, self.active_ai_book_id)
             self.add_message("System", f"✅ AI is ready! You can now ask questions about '{self.active_ai_book_name}'.")
-            
             self.input_box.configure(state="normal")
             self.send_button.configure(state="normal")
         except Exception as e:

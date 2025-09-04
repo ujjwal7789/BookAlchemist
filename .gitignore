@@ -5,6 +5,7 @@ __pycache__/
 
 input_docs/
 output_docs/
+fvenv/
 models/
 chroma_db/
 chroma_cache/

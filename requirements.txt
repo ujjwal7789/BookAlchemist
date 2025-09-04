@@ -1,0 +1,12 @@
+customtkinter
+PyMuPDF
+playwright
+langchain
+langchain-chroma
+langchain-huggingface
+sentence-transformers
+numpy
+scikit-learn
+torch
+torchvision
+torchaudio 
