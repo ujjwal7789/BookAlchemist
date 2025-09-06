@@ -1,0 +1,11 @@
+customtkinter
+PyMuPDF
+playwright
+EbookLib
+beautifulsoup4
+lxml
+langchain
+langchain-openai
+langchain-perplexity
+numpy
+scikit-learn    
