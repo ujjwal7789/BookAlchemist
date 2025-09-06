@@ -54,18 +54,29 @@ This project is built with a local-first, privacy-focused philosophy, allowing a
 
 ### 🚀 Getting Started
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+Follow these instructions to get Book Alchemist running on your Windows machine.
 
 #### Prerequisites
 
-1.  **Python:** Version 3.11 (64-bit) is recommended.
-2.  **Git:** Required to clone the repository.
-3.  **Calibre:** Required for `.mobi` file conversion.
-    *   Download and install from the [official Calibre website](https://calibre-ebook.com/download).
-    *   **Crucial:** Ensure you add the Calibre installation directory to your system's PATH environment variable so the `ebook-convert` command is accessible.
-4.  **Hardware (for Local AI):** A modern computer with a dedicated NVIDIA GPU (at least 4GB of VRAM) is strongly recommended for a good experience.
+Before you begin, you must have the following software installed on your system:
 
-#### Installation
+1.  **Python 3.11 (64-bit):**
+    *   Download from the [official Python website](https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe).
+    *   **CRITICAL:** During installation, make sure to check the box that says **"Add python.exe to PATH"**.
+
+2.  **Git:**
+    *   Download from the [official Git website](https://git-scm.com/download/win).
+
+3.  **Calibre:** (Required for `.mobi` file support)
+    *   Download from the [official Calibre website](https://calibre-ebook.com/download).
+    *   Ensure its installation directory is added to your system's PATH.
+
+4.  **NVIDIA GPU (Recommended):**
+    *   For the best performance with the local AI, a modern NVIDIA GPU with at least 4GB of VRAM and up-to-date drivers is strongly recommended.
+
+#### Easy Installation
+
+Once the prerequisites are installed, setting up the application is simple.
 
 1.  **Clone the repository:**
     ```bash
@@ -73,82 +84,14 @@ Follow these instructions to get a copy of the project up and running on your lo
     cd BookAlchemist
     ```
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    # Create the environment
-    python -m venv venv
-
-    # Activate it (Windows)
-    .\venv\Scripts\activate
-    ```
-
-3.  **Install Python dependencies:**
-    *   Create a file named `requirements.txt` in the project root and paste the content below into it.
-    *   Then, run the installation command.
-
-    **`requirements.txt`:**
-    ```text
-    customtkinter
-    PyMuPDF
-    playwright
-    langchain
-    langchain-openai
-    langchain-perplexity
-    langchain-community
-    langchain-huggingface
-    chromadb
-    sentence-transformers
-    numpy
-    scikit-learn
-    EbookLib
-    beautifulsoup4
-    lxml
-    torch
-    torchvision
-    torchaudio
-    llama-cpp-python
-    ```
-
-    **Installation Command:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Install PyTorch with CUDA support:**
-    *   For GPU acceleration of the embedding model, reinstall PyTorch with the correct CUDA version. Go to the [PyTorch website](https://pytorch.org/get-started/locally/), select your configuration (e.g., Pip, Windows, CUDA 12.1), and run the generated command.
-
-5.  **Install Playwright browsers:**
-    ```bash
-    playwright install
-    ```
-
-#### AI Model Setup
-
-You can choose to use the default Local AI or an external API.
-
-**1. Local AI (Default & Recommended)**
-*   **Download the LLM:** This application is optimized for a quantized version of Mistral 7B.
-    *   Go to [TheBloke/Mistral-7B-Instruct-v0.2-GGUF on Hugging Face](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/tree/main).
-    *   Download the `mistral-7b-instruct-v0.2.q4_k_m.gguf` file (~4.37 GB).
-*   **Place the Model:** Create a folder named `models` in the root of your project and place the downloaded `.gguf` file inside it.
-
-**2. API Mode (OpenAI / Perplexity)**
-*   Run the application once. It will create a `config.json` file.
-*   Click the "Settings" button in the app.
-*   Select your provider from the dropdown, enter your API key, and click "Save and Close".
-*   Restart the application for the changes to take effect.
+2.  **Run the Installer:**
+    *   In the project folder, simply double-click the `install.bat` file.
+    *   The script will guide you through the entire setup process, including installing dependencies and downloading the AI model. Please be patient, as some steps (like installing PyTorch) can take several minutes.
 
 ### 💻 How to Use
 
-1.  **Launch the application:**
-    ```bash
-    python app_gui.py
-    ```
-2.  Wait for the AI models to pre-load (the main button will become active).
-3.  Click **"Select Book"** and choose a `.pdf`, `.epub`, or `.mobi` file.
-4.  Once the document is analyzed, two action buttons will become active:
-    *   **Generate Styled PDF:** Choose a theme from the dropdown and click this button to create the beautiful PDF output.
-    *   **Chat with this Book:** Click this button to have the AI "study" the document. Once ready, you can start asking questions in the chat box below.
+1.  After the installation is complete, double-click the **`run_app.bat`** file in the project folder.
+2.  The application will start, pre-load the AI models, and you'll be ready to go!
 
 ---
 
