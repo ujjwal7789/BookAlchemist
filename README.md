@@ -11,7 +11,7 @@ This project is built with a local-first, privacy-focused philosophy, allowing a
 ### ✨ Features
 
 *   **Advanced Styling Engine:** Convert unstructured documents into beautifully typeset PDFs using one of two master-class themes:
-    *   **Impeccable Novel:** A theme designed with professional typographic principles, featuring procedural page textures, running headers, and a layout that mimics a high-quality hardbound classic.
+    *   **Premium Novel:** A theme designed with professional typographic principles, featuring procedural page textures, running headers, and a layout that mimics a high-quality hardbound classic.
     *   **Formal Textbook:** A clean, clear, and professional theme perfect for academic papers, manuals, and technical documents, with special styling for code blocks and images.
 *   **Multi-Format Support:** Ingests `.pdf`, `.epub`, and `.mobi` files seamlessly.
 *   **Dual-Mode Conversational AI:** Chat with your documents using a powerful Retrieval-Augmented Generation (RAG) pipeline.
